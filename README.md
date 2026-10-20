@@ -7,13 +7,13 @@
 
 A high-performance **Gojo Satoru (Limitless / Six Eyes Reveal)** Super Wallpaper for Android devices, natively optimized for **Xiaomi HyperOS** and **MIUI**.
 
-Lockscreen plays the opening segment and holds at **3.375000s**. Unlock jumps directly to the home segment at **3.416667s**, including direct AOD unlock and unlock during the intro.
+Lockscreen plays the opening and holds at **5.125000s**. Unlock from lock continues the current video without replay. Direct AOD-to-home unlock starts the full video from frame zero.
 
 ---
 
 ## 🌟 Features
 
-- **Domain boundary**: Lock holds on source frame 81 (3.375s), after the hand sign and before the first background cracks. Home starts on frame 82 (3.416667s), a forced video keyframe.
+- **Lock boundary**: Source frame 123 (5.125000s). Hand sign fully settled; hold immediately before the domain flash.
 - **Separate lock and home segments**: Frame zero is used only for lock startup. Screen-off does not decode a frame-zero preroll; a matching `home.jpg` covers the home seek until a home frame is available.
 - **Standalone Package**: Configured with unique package identifier `com.androradar.walls6.gojo`, allowing seamless side-by-side installation with Sukuna Super Wallpaper without conflicts.
 - **Native HyperOS / MIUI Intent Hooks**: Registered with `miui.service.wallpaper.SuperWallpaperService` and `is_super_wallpaper=true` for seamless integration into Xiaomi's wallpaper pipeline.
@@ -26,14 +26,14 @@ Lockscreen plays the opening segment and holds at **3.375000s**. Unlock jumps di
 ```
 GojoSuperWallpaper/
 ├── prebuilt/
-│   └── GojoSuperWallpaper.apk     # Ready-to-install signed APK (17.63 MB)
+│   └── GojoSuperWallpaper.apk     # Ready-to-install signed APK (17.24 MB)
 ├── miside_decompiled/             # Full Apktool source tree
 │   ├── AndroidManifest.xml        # Unique package `com.androradar.walls6.gojo`
 │   ├── apktool.yml                # apktool build configuration
 │   ├── assets/
 │   │   ├── backup.jpg             # Lock startup fallback image
 │   │   ├── sukuna_aod.png         # Companion AOD texture
-│   │   └── unlocked.mp4           # 1220x2712 native 24fps video; home IDR at 3.416667s
+│   │   └── unlocked.mp4           # 1220x2712 native 24fps video; direct-home start at 0s
 │   ├── res/                       # App icons, strings & wallpaper metadata
 │   └── smali/                     # Modified OpenGL ES wallpaper engine & shader logic
 │       └── com/androradar/walls6/
@@ -85,7 +85,7 @@ Recompile and sign using the PowerShell build script:
 This executes `apktool` to compile `miside_decompiled/` and `uber-apk-signer` to zipalign and sign with Android debug credentials.
 
 
-## Playback fix and verification (v1.1.0)
+## Playback fix and verification (v1.1.3)
 
 See [playback behavior, exact frames and checks](docs/PLAYBACK.md), the [boundary image](docs/transition-boundary.jpg), and [project navigation map](docs/PROJECT_MAP.md).
 

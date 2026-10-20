@@ -1,33 +1,35 @@
 # Playback behavior and verification
 
-## Reviewed clip and boundary
+## Lock and home behavior
 
-The provided clip is identified by filename and SHA-256 in [`media-timing.json`](../media-timing.json). Frames are zero-based at the source's native 24 fps. The packaged video uses 1220x2712 height scaling and center crop, preserving aspect ratio. It contains no audio and no generated interpolation frames.
+- Lock wake plays the opening and pauses on a settled pose.
+- Unlock after lock playback continues the same decoder and SurfaceTexture. It does not replay the opening or seek across a moving gesture.
+- Direct AOD-to-home unlock starts the full supplied clip from frame zero. A new unlock can restart it even when a previous screen-off event was missed.
+- Hiding the wallpaper stops decoding and clears the visible session. A USER_PRESENT received while hidden is retained until visibility reconciliation.
 
 | State | Source frame | Packaged timestamp |
 | --- | --- | --- |
-| Last lock frame / hold | 81 | 3375000 us |
-| First home frame / forced IDR | 82 | 3416667 us |
+| Last lock frame / hold | 123 | 5125000 us |
+| Next frame when held lock continues | 124 | 5166667 us |
+| Direct AOD-to-home start | 0 | 0 us |
 
-Lock stops before background cracks begin; the domain opening remains in the home segment.
+Hand sign fully settled; hold immediately before the domain flash.
 
-![Last lock frame beside first home frame](transition-boundary.jpg)
+The clip filename/hash and frame contract are in [`media-timing.json`](../media-timing.json). Video is native 24 fps, 1220x2712, height scaled and center cropped without stretching, with no audio or generated interpolation frames.
 
-## Runtime owners and state
+![Lock hold and direct-home start](transition-boundary.jpg)
 
-`LiveWallpaperService$WallpaperEngine` routes SCREEN_ON, USER_PRESENT and visibility using KeyguardManager. Non-interactive power state alone is not an indication that keyguard is locked. Visibility synchronizes before the GL surface resumes.
+## Runtime ownership
 
-`VideoPlayer.mPlaybackMode` is 0 (standby), 1 (lock) or 2 (home). Segment requests are idempotent. A delayed lock/wake cannot downgrade mode 2 until screen-off resets the mode. The requested segment survives GL and codec resource recreation; initialization does not unconditionally rewind or decode frame zero.
+`LiveWallpaperService$WallpaperEngine` owns SCREEN_ON, SCREEN_OFF, USER_PRESENT, visibility and pending-unlock reconciliation. Visibility controls playback; PowerManager.isInteractive can lag a wake callback and is not a playback veto. SCREEN_ON while hidden does not consume the clip. USER_PRESENT calls `WallpaperRenderer.onUnlocked`; an ordinary visibility refresh calls `onLocked`, keeping duplicate refreshes idempotent. Non-content lifecycle traces use `WallpaperPlayback` and `WallpaperVisibility` tags.
 
-`VideoPlayer$VideoHandler` messages 5 (home) and 6 (lock) serialize seek, pause-boundary configuration and playback on VideoHandlerThread. Home always seeks to its boundary, even when the lock intro is PLAYING. Segment requests and stop cancel stale queued advance/rewind messages.
+`WallpaperGLSurfaceView` owns EGL lifecycle and preserves its context on pause. `WallpaperEngine.onSurfaceDestroyed` must not clear renderer/player resources: a replacement window surface may reuse the same EGL context without another onSurfaceCreated. `WallpaperRenderer.setupResources` cleans/rebuilds GL resources on the GL thread. Engine destruction stops the GL thread and invokes `releasePlayer` to shut down the decoder.
 
-`VideoStream.seekTo` flushes and selects the previous sync sample. `advance` discards decoded samples before `mRenderFromUs`, so seek preroll cannot reach SurfaceTexture. Rendered output carries its media timestamp in nanoseconds. Lock pauses when its exact hold timestamp is rendered.
+`VideoPlayer.mPlaybackMode` is standby (0), lock (1) or home (2). `restartHome` continues a displayed, healthy mode-1 stream; otherwise it starts a fresh full home session. Fresh sessions recreate SurfaceTexture on the GL thread so a retained frame cannot be mistaken for the new frame-zero session. `onPlayingComplete` and `onResourcesLost` only update volatile state and request rendering, without acquiring the player monitor that reset holds while joining VideoHandlerThread.
 
-`VideoPlayer.update` accepts a home texture only once its timestamp reaches the home boundary, and rejects retained home frames when switching back to lock. Callbacks from released SurfaceTextures are ignored. Until then, `VideoShader` uses `assets/home.jpg`, not the frame-zero `backup.jpg`. The fallback texture is reloaded after GL resource cleanup. See Android's [seek modes](https://developer.android.com/reference/android/media/MediaExtractor#seekTo(long,int)) and [surface timestamps](https://developer.android.com/reference/android/media/MediaCodec#releaseOutputBuffer(int,long)).
+`VideoPlayer$VideoHandler` serializes codec access: message 5 starts home, 6 starts lock, and 7 continues lock into home by clearing its pause target and resetting its presentation clock. Continuation never seeks or flushes. `VideoStream.advance` discards seek preroll before `mRenderFromUs`, retains media timestamps and pauses exactly at the configured hold. `VideoShader` uses the appropriate static fallback until a current-session frame arrives; released SurfaceTexture callbacks are ignored.
 
-## Reproducible checks
-
-From repository root:
+## Checks
 
 ```powershell
 python scripts/prepare_media.py '<original supplied clip path>'
@@ -36,17 +38,16 @@ python scripts/verify_media.py
 .\scripts\test_playback.ps1 -AndroidJar '<Android SDK android.jar>' -D8Jar '<r8.jar>' -Device '<adb serial>'
 ```
 
-`prepare_media.py` rejects clips with a different SHA-256. `verify_media.py` checks native cadence, frame timestamps, home IDR, runtime constants, image dimensions and exact packaged media bytes. `test_playback.ps1` compiles `PlaybackSmoke.java`, executes the packaged smali with the phone's hardware decoder in an offscreen EGL surface, then removes its local/device test files. It does not install an app or select a wallpaper. Java, javac, adb and D8 are required.
+Media rebuilding verifies the supplied clip's SHA-256. Media checks verify 240 frames, native cadence, timestamps, direct-home IDR, runtime constants and packaged asset bytes. The smoke harness runs the actual APK smali with MediaCodec and real SurfaceTexture callbacks in offscreen EGL, without selecting a wallpaper; it removes task-owned local/device files, including on failure.
 
-## Verification record: 2026-10-21
+## Verification: 2026-10-21
 
-- Apktool assembly and v1/v2/v3 signing/zip alignment passed.
-- Media checks passed: 240 frames, 24 fps, exact hold timestamp and forced home keyframe; APK media bytes match source-tree assets.
-- A shared-player regression on Gojo first reproduced a retained-home-frame leak into lock (PTS 3.875s); the lock timestamp gate fixed it.
-- Offscreen hardware checks passed on the connected 2412DPC0AI: home fallback before decode, cold direct unlock, duplicate unlock, delayed wake, exact lock hold without advancing into the reveal, unlock during intro, and surface recreation in home mode.
-- Both APKs were upgraded in place to 1.1.0 / versionCode 2098181. Installed SHA-256 values match the local signed APKs. Existing selected Gojo wallpaper was retained.
-- Physical fingerprint timing and the complete AOD/keyguard/launcher composition remain for user review. Offscreen codec tests do not prove OEM compositor behavior.
+- Reproduced the preserved-context failure against the earlier APK: window destruction cleared the player, leaving no surface/handler for context reuse.
+- Apktool assembly, zip alignment, v1/v2/v3 signatures and exact media/APK checks passed for 1.1.3 / versionCode 2098184.
+- Hardware regressions passed on the connected 2412DPC0AI: cold full-home playback, exact lock hold, held lock-to-home continuation without texture replacement/replay, duplicate refresh, surface recreation, invisible wake/unlock, preserved-context window replacement, four repeated wake/unlock cycles, explicit unlock without a prior off event, and completion during teardown.
+- Both 1.1.3 APKs were installed in place; installed SHA-256 matches the local signed APK. The user's selected Sukuna wallpaper was retained for both home and lock.
+- The user confirmed repeated unlock playback on the preceding 1.1.2 revision. The current revision adds the requested lock-to-home continuation; its physical visual handoff remains for user review.
 
-The changes leave the standalone AOD activity and companion theme artwork unchanged.
+Installed/prebuilt APK SHA-256: `4ec1c62341fbd2e3fddc72b3dea3be3f7d4d1d61e7930c2e49f166888cb9c94b`.
 
-Installed/prebuilt APK SHA-256: `283cd8c733f12c285e47f7f377c6e283442eca11294c57472c6476af19d3ed63`.
+Standalone AOD artwork and companion themes remain unchanged. Android references: [engine visibility](https://developer.android.com/reference/android/service/wallpaper/WallpaperService.Engine#onVisibilityChanged(boolean)), [surface timestamps](https://developer.android.com/reference/android/media/MediaCodec#releaseOutputBuffer(int,long)), and [deferred broadcasts](https://developer.android.com/about/versions/14/behavior-changes-all#cached-broadcasts).
