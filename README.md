@@ -2,19 +2,19 @@
 
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Xiaomi%20HyperOS%20%7C%20MIUI-blue.svg)](https://android.com)
 [![Engine](https://img.shields.io/badge/Engine-OpenGL%20ES%202.0%20LiveWallpaper-cyan.svg)]()
-[![Resolution](https://img.shields.io/badge/Resolution-1080x1920%2024fps-blue.svg)]()
+[![Resolution](https://img.shields.io/badge/Resolution-1220x2712%2024fps-blue.svg)]()
 [![License](https://img.shields.io/badge/License-MIT%20%2F%20Non--Commercial-green.svg)]()
 
 A high-performance **Gojo Satoru (Limitless / Six Eyes Reveal)** Super Wallpaper for Android devices, natively optimized for **Xiaomi HyperOS** and **MIUI**.
 
-Features an AMOLED standby frame on lockscreen standby, transitioning smoothly into the iconic blindfold removal and **Six Eyes (六眼)** reveal animation at **2.000s** when unlocked.
+Lockscreen plays the opening segment and holds at **3.375000s**. Unlock jumps directly to the home segment at **3.416667s**, including direct AOD unlock and unlock during the intro.
 
 ---
 
 ## 🌟 Features
 
-- **Six Eyes Reveal**: Exact keyframe alignment at **2.000s** (`2000000 µs` = `0x1e8480`) where Satoru Gojo lifts his blindfold to reveal his glowing blue Six Eyes.
-- **AMOLED Frame 0 Standby**: Lockscreen keyguard renders a static standby Frame 0 (`backup.jpg`) during standby to eliminate battery drain and prevent keyguard desync.
+- **Domain boundary**: Lock holds on source frame 81 (3.375s), after the hand sign and before the first background cracks. Home starts on frame 82 (3.416667s), a forced video keyframe.
+- **Separate lock and home segments**: Frame zero is used only for lock startup. Screen-off does not decode a frame-zero preroll; a matching `home.jpg` covers the home seek until a home frame is available.
 - **Standalone Package**: Configured with unique package identifier `com.androradar.walls6.gojo`, allowing seamless side-by-side installation with Sukuna Super Wallpaper without conflicts.
 - **Native HyperOS / MIUI Intent Hooks**: Registered with `miui.service.wallpaper.SuperWallpaperService` and `is_super_wallpaper=true` for seamless integration into Xiaomi's wallpaper pipeline.
 - **Universal Android Compatibility**: Also works on Samsung One UI, Google Pixel, OnePlus OxygenOS, and stock Android via the Google Wallpapers app.
@@ -26,19 +26,19 @@ Features an AMOLED standby frame on lockscreen standby, transitioning smoothly i
 ```
 GojoSuperWallpaper/
 ├── prebuilt/
-│   └── GojoSuperWallpaper.apk     # Ready-to-install signed APK (9.72 MB)
+│   └── GojoSuperWallpaper.apk     # Ready-to-install signed APK (17.63 MB)
 ├── miside_decompiled/             # Full Apktool source tree
 │   ├── AndroidManifest.xml        # Unique package `com.androradar.walls6.gojo`
 │   ├── apktool.yml                # apktool build configuration
 │   ├── assets/
-│   │   ├── backup.jpg             # Frame 0 standby image
+│   │   ├── backup.jpg             # Lock startup fallback image
 │   │   ├── sukuna_aod.png         # Companion AOD texture
-│   │   └── unlocked.mp4           # 1080x1920 24fps video with keyframe at 2.000s
+│   │   └── unlocked.mp4           # 1220x2712 native 24fps video; home IDR at 3.416667s
 │   ├── res/                       # App icons, strings & wallpaper metadata
 │   └── smali/                     # Modified OpenGL ES wallpaper engine & shader logic
 │       └── com/androradar/walls6/
-│           ├── VideoPlayer.smali                # playToLock paused at 2.0s (0x1e8480)
-│           └── VideoPlayer$VideoHandler.smali   # resumeAdvance direct seek at 2.0s (0x1e8480)
+│           ├── VideoPlayer.smali                # Requested playback mode and texture readiness
+│           └── VideoPlayer$VideoHandler.smali   # Serialized lock/home decoder messages
 ├── scripts/
 │   ├── update_gojo_smali.py       # Timestamp patching utility
 │   └── install_helper.py          # Device installation helper
@@ -60,7 +60,7 @@ adb -s SCU4VSEQ8HV8RG85 install -r -d prebuilt/GojoSuperWallpaper.apk
 *(On Xiaomi / HyperOS devices, tap **Install** on the "Install via USB" system prompt when it appears).*
 
 ### Option 2: On-Device File Manager
-The APK is also pre-staged in your device download folder:
+To install without ADB, copy `prebuilt/GojoSuperWallpaper.apk` into your device download folder:
 1. Open the **Files** / **File Manager** app on your phone.
 2. Navigate to **Downloads** (`/sdcard/Download/`).
 3. Tap **GojoSuperWallpaper.apk** and confirm install.
@@ -83,3 +83,10 @@ Recompile and sign using the PowerShell build script:
 .\build.ps1
 ```
 This executes `apktool` to compile `miside_decompiled/` and `uber-apk-signer` to zipalign and sign with Android debug credentials.
+
+
+## Playback fix and verification (v1.1.0)
+
+See [playback behavior, exact frames and checks](docs/PLAYBACK.md), the [boundary image](docs/transition-boundary.jpg), and [project navigation map](docs/PROJECT_MAP.md).
+
+`media-timing.json` records the reviewed source clip/hash, lock hold and first home frame. `scripts/prepare_media.py <source.mp4>` rebuilds media with a home IDR and matching fallback image. Historical anchor patchers are not part of the build and can overwrite these fixes if replayed.

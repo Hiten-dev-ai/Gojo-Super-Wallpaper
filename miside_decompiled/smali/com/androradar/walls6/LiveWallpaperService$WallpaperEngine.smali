@@ -74,33 +74,14 @@
 
 .method private isDeviceLocked()Z
     .locals 1
-
     iget-object v0, p0, Lcom/androradar/walls6/LiveWallpaperService$WallpaperEngine;->mKeyGuardManager:Landroid/app/KeyguardManager;
-
+    if-eqz v0, :unlocked
     invoke-virtual {v0}, Landroid/app/KeyguardManager;->isKeyguardLocked()Z
-
     move-result v0
-
-    if-nez v0, :cond_0
-
-    iget-object v0, p0, Lcom/androradar/walls6/LiveWallpaperService$WallpaperEngine;->mPowerManager:Landroid/os/PowerManager;
-
-    invoke-virtual {v0}, Landroid/os/PowerManager;->isInteractive()Z
-
-    move-result v0
-
-    if-nez v0, :cond_1
-
-    :cond_0
-    const/4 v0, 0x1
-
-    :goto_0
     return v0
-
-    :cond_1
+    :unlocked
     const/4 v0, 0x0
-
-    goto :goto_0
+    return v0
 .end method
 
 .method private syncLockedState(Z)V
@@ -338,6 +319,10 @@
     .locals 1
 
     if-eqz p1, :cond_0
+
+    # Visibility may be the only wake event; player segment requests are idempotent.
+    const/4 v0, 0x1
+    invoke-direct {p0, v0}, Lcom/androradar/walls6/LiveWallpaperService$WallpaperEngine;->syncLockedState(Z)V
 
     iget-object v0, p0, Lcom/androradar/walls6/LiveWallpaperService$WallpaperEngine;->mGlView:Lcom/androradar/walls6/LiveWallpaperService$WallpaperEngine$WallpaperGLSurfaceView;
 

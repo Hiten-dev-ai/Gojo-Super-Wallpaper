@@ -1,0 +1,12 @@
+{
+  "source_file": "Animated_character_removing_blin…_1080p_20261020215005_gwr_video_mvp.mp4",
+  "source_sha256": "f7536039b638207644dfb84d6371ac37513d7a1cc0573dff058772635f839c79",
+  "fps": 24,
+  "lock_hold_frame": 81,
+  "lock_hold_us": 3375000,
+  "home_start_frame": 82,
+  "home_start_us": 3416667,
+  "width": 1220,
+  "height": 2712,
+  "framing": "scale to height, center crop; no stretch"
+}
