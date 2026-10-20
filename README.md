@@ -7,14 +7,14 @@
 
 A high-performance **Gojo Satoru (Limitless / Six Eyes Reveal)** Super Wallpaper for Android devices, natively optimized for **Xiaomi HyperOS** and **MIUI**.
 
-Lockscreen plays the opening and holds at **5.125000s**. Unlock from lock continues the current video without replay. Direct AOD-to-home unlock starts the full video from frame zero.
+Lockscreen plays the opening and holds at **5.125000s**. Unlock from lock continues the current video without replay. Direct AOD-to-home unlock starts the full video from frame zero. Returning from an app resumes the current frame or keeps the completed final frame.
 
 ---
 
 ## 🌟 Features
 
 - **Lock boundary**: Source frame 123 (5.125000s). Hand sign fully settled; hold immediately before the domain flash.
-- **Separate lock and home segments**: Frame zero is used only for lock startup. Screen-off does not decode a frame-zero preroll; a matching `home.jpg` covers the home seek until a home frame is available.
+- **Playback session**: Lock-to-home continues the current clip. Direct AOD unlock starts at frame zero. Apps pause playback; returning home never restarts a completed animation. Saved timestamps and a final-frame fallback preserve state across GL recreation.
 - **Standalone Package**: Configured with unique package identifier `com.androradar.walls6.gojo`, allowing seamless side-by-side installation with Sukuna Super Wallpaper without conflicts.
 - **Native HyperOS / MIUI Intent Hooks**: Registered with `miui.service.wallpaper.SuperWallpaperService` and `is_super_wallpaper=true` for seamless integration into Xiaomi's wallpaper pipeline.
 - **Universal Android Compatibility**: Also works on Samsung One UI, Google Pixel, OnePlus OxygenOS, and stock Android via the Google Wallpapers app.
@@ -26,12 +26,14 @@ Lockscreen plays the opening and holds at **5.125000s**. Unlock from lock contin
 ```
 GojoSuperWallpaper/
 ├── prebuilt/
-│   └── GojoSuperWallpaper.apk     # Ready-to-install signed APK (17.24 MB)
+│   └── GojoSuperWallpaper.apk     # Ready-to-install signed APK (17.47 MB)
 ├── miside_decompiled/             # Full Apktool source tree
 │   ├── AndroidManifest.xml        # Unique package `com.androradar.walls6.gojo`
 │   ├── apktool.yml                # apktool build configuration
 │   ├── assets/
 │   │   ├── backup.jpg             # Lock startup fallback image
+│   │   ├── home.jpg               # Direct-home startup fallback
+│   │   ├── rest.jpg               # Completed-home fallback after GL recreation
 │   │   ├── sukuna_aod.png         # Companion AOD texture
 │   │   └── unlocked.mp4           # 1220x2712 native 24fps video; direct-home start at 0s
 │   ├── res/                       # App icons, strings & wallpaper metadata
@@ -85,7 +87,7 @@ Recompile and sign using the PowerShell build script:
 This executes `apktool` to compile `miside_decompiled/` and `uber-apk-signer` to zipalign and sign with Android debug credentials.
 
 
-## Playback fix and verification (v1.1.3)
+## Playback fix and verification (v1.1.4)
 
 See [playback behavior, exact frames and checks](docs/PLAYBACK.md), the [boundary image](docs/transition-boundary.jpg), and [project navigation map](docs/PROJECT_MAP.md).
 
